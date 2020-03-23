@@ -20,7 +20,7 @@
 
 set -eE
 
-packages="configguess zlib libzip png jpeg tiff openjpeg iconv gettext ffi glib gdkpixbuf pixman cairo xml sqlite openslide openslidejava"
+packages="configguess zlib libzip png jpeg tiff openjpeg iconv gettext ffi glib gdkpixbuf pixman cairo xml sqlite openslide"
 
 # Tool configuration for Cygwin
 cygtools="wget zip pkg-config make cmake mingw64-i686-gcc-g++ mingw64-x86_64-gcc-g++ binutils nasm gettext-devel libglib2.0-devel"
@@ -37,7 +37,7 @@ png_name="libpng"
 jpeg_name="libjpeg-turbo"
 tiff_name="libtiff"
 openjpeg_name="OpenJPEG"
-iconv_name="win-iconv"
+iconv_name="libiconv"
 gettext_name="gettext"
 ffi_name="libffi"
 glib_name="glib"
@@ -57,7 +57,7 @@ png_ver="1.6.34"
 jpeg_ver="1.5.3"
 tiff_ver="4.0.9"
 openjpeg_ver="2.3.0"
-iconv_ver="0.0.8"
+iconv_ver="1.15"
 gettext_ver="0.19.8.1"
 ffi_ver="3.2.1"
 glib_ver="2.56.1"
@@ -83,7 +83,7 @@ png_url="http://prdownloads.sourceforge.net/libpng/libpng-${png_ver}.tar.xz"
 jpeg_url="http://prdownloads.sourceforge.net/libjpeg-turbo/libjpeg-turbo-${jpeg_ver}.tar.gz"
 tiff_url="http://download.osgeo.org/libtiff/tiff-${tiff_ver}.tar.gz"
 openjpeg_url="https://github.com/uclouvain/openjpeg/archive/v${openjpeg_ver}.tar.gz"
-iconv_url="https://github.com/win-iconv/win-iconv/archive/v${iconv_ver}.tar.gz"
+iconv_url=""http://ftp.gnu.org/pub/gnu/libiconv/libiconv-${iconv_ver}.tar.gz""
 gettext_url="http://ftp.gnu.org/pub/gnu/gettext/gettext-${gettext_ver}.tar.xz"
 ffi_url="ftp://sourceware.org/pub/libffi/libffi-${ffi_ver}.tar.gz"
 glib_url="http://ftp.gnome.org/pub/gnome/sources/glib/${glib_basever}/glib-${glib_ver}.tar.xz"
@@ -102,7 +102,7 @@ png_build="libpng-${png_ver}"
 jpeg_build="libjpeg-turbo-${jpeg_ver}"
 tiff_build="tiff-${tiff_ver}"
 openjpeg_build="openjpeg-${openjpeg_ver}"
-iconv_build="win-iconv-${iconv_ver}"
+iconv_build="libiconv-${iconv_ver}"
 gettext_build="gettext-${gettext_ver}/gettext-runtime"
 ffi_build="libffi-${ffi_ver}"
 glib_build="glib-${glib_ver}"
@@ -121,7 +121,7 @@ png_licenses="png.h"  # !!!
 jpeg_licenses="LICENSE.md README.ijg simd/jsimdext.inc" # !!!
 tiff_licenses="COPYRIGHT"
 openjpeg_licenses="LICENSE"
-iconv_licenses="readme.txt"
+iconv_licenses="COPYING.LIB"
 gettext_licenses="COPYING intl/COPYING.LIB"
 ffi_licenses="LICENSE"
 glib_licenses="COPYING"
@@ -159,7 +159,7 @@ png_artifacts="libpng16-16.dll"
 jpeg_artifacts="libjpeg-62.dll"
 tiff_artifacts="libtiff-5.dll"
 openjpeg_artifacts="libopenjp2.dll"
-iconv_artifacts="iconv.dll"
+iconv_artifacts="libiconv-2.dll libcharset-1.dll"
 gettext_artifacts="libintl-8.dll"
 ffi_artifacts="libffi-6.dll"
 glib_artifacts="libglib-2.0-0.dll libgthread-2.0-0.dll libgobject-2.0-0.dll libgio-2.0-0.dll libgmodule-2.0-0.dll"
@@ -464,22 +464,12 @@ build_one() {
         make install
         ;;
     iconv)
-        # Don't strip DLL during build
-        sed -i 's/-Wl,-s //' Makefile
-        make \
-                CC="${build_host}-gcc" \
-                AR="${build_host}-ar" \
-                RANLIB="${build_host}-ranlib" \
-                DLLTOOL="${build_host}-dlltool" \
-                CFLAGS="${cppflags} ${cflags}" \
-                SPECS_FLAGS="${ldflags} -static-libgcc"
+        do_configure
+        make $parallel
         if [ "$can_test" = yes ] ; then
-            make test \
-                    CC="${build_host}-gcc" \
-                    CFLAGS="${cppflags} ${cflags} ${ldflags}"
+            make check
         fi
-        make install \
-                prefix="${root}"
+        make install
         ;;
     gettext)
         do_configure \
@@ -663,7 +653,7 @@ bdist() {
                         "${root}/bin/${artifact}" \
                         "${zipdir}/bin/${artifact}.debug"
                 chmod -x "${zipdir}/bin/${artifact}.debug"
-                ${build_host}-objcopy -S \
+                ${build_host}-objcopy -g \
                         --add-gnu-debuglink="${zipdir}/bin/${artifact}.debug" \
                         "${root}/bin/${artifact}" \
                         "${zipdir}/bin/${artifact}"
@@ -792,7 +782,6 @@ probe() {
         fi
         if [ ! -e "$java_home" ] ; then
             echo "Java directory not found."
-            exit 1
         fi
         ;;
     *)
